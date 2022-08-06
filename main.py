@@ -5,6 +5,7 @@ import pygame, random, math, sys
 from pygame.locals import *
 from collections import defaultdict, deque
 
+#Monte Carlo Search Tree is abbreviated MCST
 clock=pygame.time.Clock()
 #eventually try and implement shifting show available feature with stack if suitable
 pygame.init()
@@ -35,7 +36,7 @@ color="WHITE"
 AI=False
 AI_1, AI_2 = None, None #possible AIs for players 1 and 2
 
-class Board_State: #for the simulation
+class Board_State: #for the game board simulation
     total_visits=0 #class variable
     max_child=None
     sec_child=None
@@ -120,7 +121,7 @@ def fill(row, col, color, AI=False): #for AI does nothing
 def cell_values(cell_tuple): #returns row and column position of each cell
     return cell_tuple[0], cell_tuple[1]
 
-def show_available(row, col, color, AI=False): #changes available
+def show_available(row, col, color, AI=False): #show available squares in red after player clicks team's square
 
     #checks valid spaces in row
 
@@ -194,7 +195,7 @@ def show_available(row, col, color, AI=False): #changes available
                     fill(r, row+col-r, "RED", AI)
                     available.append((r, row+col-r))
 
-def BFS(color, vertex, avoid=None):
+def BFS(color, vertex, avoid=None): #used for component_number
     marked=set()
     marked.add(vertex)
     queue=deque()
@@ -214,7 +215,7 @@ def BFS(color, vertex, avoid=None):
                 marked.add(neighbor)
     return marked
 
-def component_number(color, cells, avoid=None):
+def component_number(color, cells, avoid=None): #finds the number of connected components of color parameter 'color' in our grid
     cell_set=set()
     cells_op=set(cells)
     res=0
@@ -227,7 +228,7 @@ def component_number(color, cells, avoid=None):
         res+=1
     return res
 
-def BFS_find(vertex, neighbors_find): 
+def BFS_find(vertex, neighbors_find): #For bot: prevents overcounting number of connected components of current color cells
     marked=set()
     marked.add(vertex)
     queue=deque()
@@ -247,7 +248,7 @@ def BFS_find(vertex, neighbors_find):
             queue.append(neighbor)
     return False
  
-def simulate(color: str):
+def simulate(color: str): #Simulates a move (Board_State) for the MCST
     global available
     if color=="WHITE":
         curr=neighbors_white
@@ -284,10 +285,10 @@ def Rollout(color: str, board_state: Board_State): #here there will be repeated 
     Board_State.total_visits+=1
     board_state.set_UGI()
 
-def find_maxes(boards: list, max:Board_State, sec:Board_State): #special cases for len(boards)<=2
+def find_maxes(boards: list, max:Board_State, sec:Board_State): #finds child node of current node with highest UGI (valuation) value
 
     for board in boards:
-        board.set_UGI() #heeeeeeee: vera idhamum idha panitten ninaichen
+        board.set_UGI() 
         if max is not None and sec is not None:
             if max.UGI==sec.UGI==float(infty):
                 break
@@ -318,14 +319,15 @@ def find_maxes(boards: list, max:Board_State, sec:Board_State): #special cases f
     
     return max, sec
 
-def find_max_visited(children: list):
+def find_max_visited(children: list): #finds the child board game state of the initial state with the greatest number of visits in the MCST.
     max=children[0]
     for child in children:
         if(child.visited>max.visited):
             max=child
     return max
 
-def update_parents(current: Board_State): #must update find_maxes for every parent, update visited, and update val
+def update_parents(current: Board_State): #deletes dicionaries associated with "internal nodes" of MCST, thereby saving memory. Updates the visited values
+                                            #of each node passed by MCST, and total visits, by 1.
     val=current.val
     while current.parent is not None:
         current=current.parent
@@ -336,7 +338,7 @@ def update_parents(current: Board_State): #must update find_maxes for every pare
             return
         current.clear_dicts()
 
-def backtrack(current: Board_State):
+def backtrack(current: Board_State): #resets global variables 
     global colors, neighbors_white, neighbors_grey, colors, row_count, col_count, main_diag, sec_diag
 
     neighbors_white=copy.deepcopy(current.white)
@@ -347,8 +349,7 @@ def backtrack(current: Board_State):
     main_diag=current.main_diag.copy()
     sec_diag=current.sec_diag.copy()
 
-#fix this goddamn
-def Expansion(color: str, current: Board_State):
+def Expansion(color: str, current: Board_State): #Initializes children of current Board_State node
     global curr, colors, row_count, col_count, main_diag, sec_diag, neighbors_white, neighbors_grey, available
 
     if color=="WHITE":
@@ -373,7 +374,7 @@ def Expansion(color: str, current: Board_State):
             states[current].append(next)
             backtrack(current)
 
-def AI_move(color, initial: Board_State): #call when AI
+def AI_move(color, initial: Board_State): #bot functionality
     global colors, neighbors_white, neighbors_grey, row_count, col_count, main_diag, sec_diag
     initial_color=color
     current=initial
@@ -412,7 +413,7 @@ def AI_move(color, initial: Board_State): #call when AI
     return find_max_visited(states[initial])
 
     
-def remove_available_spaces(AI): 
+def remove_available_spaces(AI): #resets list of available spaces to [] after player/bot moves
     global available
     if(AI):
         available=[]
@@ -435,7 +436,7 @@ def del_neighbors(color, a, b): #deletes cell at location, and deletes it from n
     curr.pop((a,b))
     remove_grid(a, b)
 
-def update(a, b, c, d, color, AI=False): #changes neighbor_'?color' dictionary
+def update(a, b, c, d, color, AI=False): #updates the grid after a move
     val_color, val_other = 0,0
     if(color=="WHITE"):
         curr=neighbors_white
@@ -560,7 +561,7 @@ while True:
 
         if color != AI_1 and color != AI_2:    
             if event.type==pygame.MOUSEBUTTONDOWN:
-                if pygame.mouse.get_pressed()[0]:
+                if pygame.mouse.get_pressed()[0]: 
                     x , y = pygame.mouse.get_pos()
                     row, col = y//gap+1, x//gap+1
                     row, col = int(row), int(col)
